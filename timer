@@ -1,0 +1,228 @@
+/*
+5timer.cpp
+
+Windows programming: Menu, Keyboard, Mouse, Timer
+Masao Kishore
+10-24-2007; 01-23-2008; 01-26-2009; 01/25/2015
+*/
+
+// trim the excess fat from Windows
+#define WIN32_LEAN_AND_MEAN 
+
+#include <windows.h>
+
+// menu item
+#define ID_START	100
+#define ID_STOP		101
+#define ID_LEFT		105
+#define ID_RIGHT	106
+#define ID_RESET	107
+#define ID_QUIT		108
+
+const int 
+	xmin = 0, xmax = 330, xstart = 150, 
+	ymin = 0, ymax = 205, ystart = 100,
+	timerId = 10;
+int x = xstart, y = ystart, dx = 1, dy = 1;;
+
+void draw(HDC hDC) {
+	TCHAR str[256];
+	wsprintf(str, TEXT("x=%d, y=%d"), x, y);
+	SetBkColor(hDC, RGB(0x40, 0x40, 0xff));  // RRGGBB
+	//SetBkMode(hDC,TRANSPARENT);
+	//SetTextColor(hDC, COLORREF(0x000000FF));  // 00BBGGRR
+	SetTextColor(hDC, RGB(0xff, 0xff, 0x00));  // RRGGBB
+	TextOut(hDC, x, y, str, (int)wcslen(str));
+}
+
+void createMenu(HWND hwnd) {
+	HMENU hMenu, hSubMenu;  // local variable
+
+	hMenu = CreateMenu();
+
+	// menu
+	AppendMenu(hMenu, MF_STRING, ID_START, TEXT("Start"));
+	AppendMenu(hMenu, MF_STRING, ID_STOP, TEXT("Stop"));
+
+	// submenu
+	hSubMenu = CreatePopupMenu();
+	AppendMenu(hSubMenu, MF_STRING, ID_LEFT, TEXT("&Left"));
+	AppendMenu(hSubMenu, MF_SEPARATOR, 0, 0);
+	AppendMenu(hSubMenu, MF_STRING, ID_RIGHT, TEXT("&Right"));
+	// attach submenu to a menu
+	AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT_PTR)hSubMenu, TEXT("&Change"));
+
+	// menu
+	AppendMenu(hMenu, MF_STRING, ID_RESET, TEXT("R&eset"));
+	AppendMenu(hMenu, MF_STRING, ID_QUIT, TEXT("&Quit"));
+
+	SetMenu(hwnd, hMenu);
+}
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	HDC hDC;
+
+	switch(msg)
+	{
+		case WM_CREATE:
+			createMenu(hwnd);
+			break;
+			
+		case WM_PAINT:  
+			PAINTSTRUCT ps;
+			hDC = BeginPaint(hwnd,&ps);
+			draw(hDC);
+			EndPaint(hwnd,&ps);
+			break;
+
+		case WM_COMMAND:
+			switch(LOWORD(wParam)) {
+				case ID_START:
+					SetTimer(hwnd, timerId, 30, NULL);  
+					// call WM_TIMER (NULL default) every 30 milli seconds
+					break;
+				case ID_STOP:
+					KillTimer(hwnd, timerId);
+					break;
+				case ID_LEFT:
+					dx = -1;
+					break;
+				case ID_RIGHT:
+					dx = 1;
+					break;
+				case ID_RESET:
+					KillTimer(hwnd, timerId);
+					x = xstart;
+					y = ystart;
+					dx = 1;
+					dy = 1;
+					InvalidateRect(hwnd,NULL,TRUE);  // call WM_PAINT
+					break;
+				case ID_QUIT:
+					PostQuitMessage(0);
+					break;
+			}
+			break;
+
+		case WM_KEYDOWN: 
+		{
+			switch(wParam) {
+				case 'R': //'A'=65, 'R'=82
+				case VK_RIGHT:
+					dx = 1;
+					break;
+				case 'L': 
+				case VK_LEFT:
+					dx = -1;
+					break;
+				case 'U': 
+				case VK_UP:
+					dy = -1;
+					break;
+				case 'D': 
+				case VK_DOWN:
+					dy = 1;
+					break;
+				case 'Q':
+				case VK_ESCAPE:
+					PostQuitMessage(WM_QUIT);
+					break;
+				default:
+					break;
+			}
+			break;
+		}
+
+		case WM_LBUTTONDOWN:
+            x = LOWORD(lParam);
+            y = HIWORD(lParam);
+			InvalidateRect(hwnd,NULL,TRUE);  // call WM_PAINT
+			break;
+
+		case WM_RBUTTONDOWN:
+			KillTimer(hwnd, timerId);
+			break;
+
+		case WM_TIMER:  // draw outside WM_PAINT
+			x = x + dx;
+			if (x >= xmax) dx = -1;
+			if (x <= xmin) dx = 1;
+			y = y + dy;
+			if (y >= ymax) dy = -1;
+			if (y <= ymin) dy = 1;
+
+			// writing outside of WM_PAINT
+			hDC = GetDC(hwnd);
+			draw(hDC);
+			ReleaseDC(hwnd, hDC);
+			break;
+
+		case WM_DESTROY:
+			PostQuitMessage(WM_QUIT);
+			break;
+
+		default:
+			return DefWindowProc(hwnd, msg, wParam, lParam);
+	}
+	
+	return 0;
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+	LPSTR lpCmdLine, int nCmdShow)
+{
+
+	WNDCLASSEX wc;
+	HWND hwnd;
+	MSG msg;
+	
+	wc.cbSize = sizeof(WNDCLASSEX);
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = 0;
+	wc.lpfnWndProc = WndProc;
+	wc.lpszClassName = TEXT("Example");
+	wc.hInstance = hInstance;
+	wc.style = CS_HREDRAW | CS_VREDRAW;
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+	//wc.hbrBackground = (HBRUSH)(BLACK_BRUSH);
+	wc.lpszMenuName = NULL;
+
+	// Window color
+	wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+	wc.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);  // white
+	wc.hbrBackground  = (HBRUSH)(COLOR_WINDOW+0); 
+	// +0=light gray, +1=white, +2=dark gray
+	wc.hbrBackground = CreateSolidBrush(RGB(0xFF, 0xc0, 0xc0));  // RRGGBB
+	//wc.hbrBackground = CreateSolidBrush(COLORREF(0x00FF8080)); // 00BBGGRR
+
+	RegisterClassEx(&wc);
+
+	hwnd = CreateWindow(
+		TEXT("Example"), 
+		TEXT("Window Example"), 
+		WS_OVERLAPPEDWINDOW , 
+		0, 0, 400, 300, 
+		NULL, NULL, hInstance, NULL
+	);
+
+
+	ShowWindow(hwnd, nCmdShow);
+	UpdateWindow(hwnd);
+
+
+	while (true)
+	{
+		if (GetMessage(&msg, NULL, 0, 0) == 0)
+			break;
+		else
+		{
+			TranslateMessage(&msg); 
+			DispatchMessage(&msg);
+		}
+	}
+
+	return 0;
+}
