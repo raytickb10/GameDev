@@ -1,0 +1,169 @@
+/*
+3graph.cpp
+
+Graph of:
+y = sin(x)
+y = x - x**3/3! - x**5/5!- x**7/7! + x**9/9!
+
+M. Kishore
+11/12/2012, 01/22/2015
+*/
+
+#define WIN32_LEAN_AND_MEAN 
+
+#include <windows.h> // standard Windows app include
+#include <math.h>
+
+int heightScreen, widthScreen;
+int widthWindow, heightWindow;
+double pi = 3.141592;
+
+void drawGraph(HDC hDC, double xmin, double xmax, double ymin, double ymax, int sWidth, int sHeight);
+
+// the Windows Procedure event handler
+LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	PAINTSTRUCT paintStruct;
+	HDC hDC; // device context
+	TCHAR // text to be displayed
+		str1[] = TEXT("y = sin(x)"),
+		str2[] = TEXT("y = x - x**3/3! + x**5/5! - x**7/7! + x**9/9!");
+
+	switch(message)
+	{
+		case WM_CREATE: // window is being created
+			break;
+
+		case WM_CLOSE: // windows is closing
+			PostQuitMessage(0);
+			break;
+
+			int id;
+			id = MessageBox(hwnd, TEXT("Quit?"), TEXT("Confirmation"), MB_YESNO);
+			if(id == IDYES) {
+                //DestroyWindow(hwnd);
+				PostQuitMessage(0);
+			}
+			break;
+
+		case WM_PAINT: // window needs updating
+			hDC = BeginPaint(hwnd, &paintStruct);
+
+			drawGraph(hDC, 0, 2*pi, -2, 2, widthWindow, heightWindow);
+
+			SetTextColor(hDC, RGB(255, 0, 0)); // BBGGRR
+			TextOut(hDC, widthWindow/2, heightWindow/2 - 30, str1, (int)wcslen(str1));  // strlen returns size_t
+			SetTextColor(hDC, RGB(0, 0, 255)); // BBGGRR
+			TextOut(hDC, widthWindow / 2, heightWindow / 2, str2, (int)wcslen(str2));  // strlen returns size_t
+
+			EndPaint(hwnd, &paintStruct);
+			break;
+
+		default:
+			return(DefWindowProc(hwnd, message, wParam, lParam));
+			break;
+	}
+
+	return(0);
+}
+
+// The application entry point
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
+	int nShowCmd)
+{
+	WNDCLASSEX windowClass; // window class
+	HWND hwnd; // window handle
+	MSG msg; // message
+	
+	// fill out the window class structure
+	windowClass.cbSize = sizeof(WNDCLASSEX);
+	windowClass.style = CS_HREDRAW | CS_VREDRAW;
+	windowClass.lpfnWndProc = WndProc;
+	windowClass.cbClsExtra = 0;
+	windowClass.cbWndExtra = 0;
+	windowClass.hInstance = hInstance;
+	//windowClass.hIcon = LoadIcon(NULL, TEXT("MYICON"));
+	//windowClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    windowClass.hIcon = LoadIcon(hInstance, TEXT("MYICON"));
+	windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+	//windowClass.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+	windowClass.hbrBackground = CreateSolidBrush(RGB(0xff, 0xff, 0xc0));  // RRGGBB
+	windowClass.lpszMenuName = NULL;
+	windowClass.lpszClassName = TEXT("MyClass");
+	windowClass.hIconSm = LoadIcon(NULL, IDI_WINLOGO);
+
+	// register the window class
+	if (!RegisterClassEx(&windowClass))
+		return -1;
+
+	// create a window of intelligent size
+	// full screen size
+	widthScreen = GetSystemMetrics(SM_CXSCREEN);
+	heightScreen = GetSystemMetrics(SM_CYSCREEN);
+	// this window size
+	widthWindow = widthScreen*2/3;
+	heightWindow = heightScreen*2/3;
+
+	// class registered, so now create your window
+	hwnd = CreateWindowEx(NULL, // extended style
+		TEXT("MyClass"), // class name
+		TEXT("A real Windows Application!"), // app name
+		WS_OVERLAPPEDWINDOW | // window style
+		WS_VISIBLE |
+		WS_SYSMENU,
+		widthScreen/6, heightScreen/6, // x,y coordinate
+		//0, 0, // x,y coordinate
+		widthWindow, heightWindow,
+		//400, 300, // widthScreen, heightScreen
+		NULL, // handle to parent
+		NULL, // handle to menu
+		hInstance, // application instance
+		NULL); // no extra params
+
+	// check if window creation failed (hwnd would equal NULL)
+	if (!hwnd)
+		return -1;
+ 
+	// replace window title
+	SetWindowText(hwnd, TEXT("Graph of y = sin(x)"));
+
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    return (msg.wParam);
+}
+
+void drawGraph(HDC hDC, double xmin, double xmax, double ymin, double ymax, int sWidth, int sHeight) {
+	double x, y, x2, x3, x5, x7, x9, x11, x13, f3, f5, f7, f9, f11, f13;
+	int xs, ys;
+	HPEN hpen;
+
+	hpen = CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
+	SelectObject(hDC, hpen);
+
+	// draw y = sin(x)
+	for (x = xmin; x < xmax; x += (xmax - xmin) / 100) {
+		y = sin(x);
+
+		xs = int(sWidth*(x - xmin) / (xmax - xmin));
+		ys = int(sHeight - sHeight*(y - ymin) / (ymax - ymin));
+		if (x == xmin) MoveToEx(hDC, xs, ys, NULL);
+		else LineTo(hDC, xs, ys);
+	}
+
+	hpen = CreatePen(PS_SOLID, 1, RGB(0, 0, 255));
+	SelectObject(hDC, hpen);
+
+	f3 = 6; f5 = 120; f7 = f5 * 6 * 7; f9 = f7 * 8 * 9; f11 = f9 * 10 * 11; f13 = f11 * 12 * 13;
+	// draw y = x - x**3/3! - x**5/5!- x**7/7! + x**9/9!
+	for (x = xmin; x < xmax; x += (xmax - xmin) / 100) {
+		x2 = x*x; x3 = x2*x; x5 = x2*x3; x7 = x2*x5; x9 = x2*x7; x11 = x2*x9, x13 = x2*x11;
+		y = x - x3 / f3 + x5 / f5 - x7 / f7 + x9 / f9; //- x11/f11 + x13/f13;
+
+		xs = int(sWidth*(x - xmin) / (xmax - xmin));
+		ys = int(sHeight - sHeight*(y - ymin) / (ymax - ymin));
+		if (x == xmin) MoveToEx(hDC, xs, ys, NULL);
+		else LineTo(hDC, xs, ys);
+	}
+}
