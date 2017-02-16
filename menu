@@ -1,0 +1,211 @@
+/*
+2Menu.cpp
+Need: 2Menu.rc
+
+M. Kishore
+1/21/2013, 1/22/2015
+*/
+
+/*
+// 2Menu.rc
+// This must be added to Solution Explorer: Resource Files
+
+// menu id
+#define IDM_END		1100
+#define IDM_CLEAR	1000
+#define IDM_TEXT	1010
+#define IDM_RED		1020
+#define IDM_BLUE	1030
+
+MYMENU MENU //PRELOAD FIXED //DISCARDABLE
+BEGIN
+	MENUITEM "End",		IDM_END
+	MENUITEM "Clear",	IDM_CLEAR
+	MENUITEM "Text",	IDM_TEXT
+	POPUP "Color"
+	BEGIN
+		MENUITEM "Red",		IDM_RED
+		MENUITEM "Blue",	IDM_BLUE
+	END
+END
+*/
+
+#include <windows.h>
+
+// menu id
+#define IDM_END		1100
+#define IDM_CLEAR	1000
+#define IDM_TEXT	1010
+#define IDM_RED		1020
+#define IDM_BLUE	1030
+
+LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+TCHAR lpClassName[] = TEXT("Windows with Menus"); // class name
+TCHAR lpWindowTitle[] = TEXT("Complex Menu"); // window title
+
+int ww = 400, wh = 300;
+COLORREF color = RGB(0, 255, 0); // green
+BOOL text = TRUE;
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPreInst,
+	LPSTR lpszCmdLine, int nCmdShow)
+{
+    HWND hWnd;
+    MSG msg;
+    WNDCLASS myProg;
+    if (!hPreInst) {
+        myProg.style			=CS_HREDRAW | CS_VREDRAW;
+        myProg.lpfnWndProc		=WndProc;
+        myProg.cbClsExtra		=0;
+        myProg.cbWndExtra		=0;
+        myProg.hInstance		=hInstance;
+        myProg.hIcon			=NULL;
+        myProg.hCursor			=LoadCursor(NULL, IDC_ARROW);
+		myProg.hbrBackground	=(HBRUSH)GetStockObject(WHITE_BRUSH); //RGB(0x80, 0xFF, 0x80)); //WHITE_BRUSH);
+        myProg.lpszMenuName		=TEXT("MYMENU");  // menu name
+        myProg.lpszClassName	=lpClassName;  // class name
+        if (!RegisterClass(&myProg))
+            return FALSE;
+    }
+
+	int sw, sh;
+	sw = GetSystemMetrics(SM_CXSCREEN);
+	sh = GetSystemMetrics(SM_CYSCREEN);
+	ww = sw / 2;
+	wh = sh / 2;
+	
+	hWnd = CreateWindow(
+		lpClassName,  // class name
+		lpWindowTitle,  // window title
+        WS_OVERLAPPEDWINDOW,
+		sw / 4, sh / 4,  // upper left corner
+		ww, wh, // window width & height  
+		//0, 0, 
+		//400, 300, 
+		NULL,
+        NULL,
+        hInstance,
+        NULL);
+
+    ShowWindow(hWnd, nCmdShow);
+    UpdateWindow(hWnd); //call WM_PAINT in WndProc
+
+    while (GetMessage(&msg, NULL, 0, 0)) {
+		// continue until WM_QUIT message
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    return (msg.wParam);
+}
+
+LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	PAINTSTRUCT paintStruct;
+	HDC hDC; // device context
+	TCHAR str_org[] = TEXT("left=\n%d top=%d right=%d bottom=%d");
+	TCHAR strx[256]; 
+
+	switch (msg) {
+	case WM_CREATE: // window is being created
+		break;
+
+	case WM_SIZE:
+		break;
+/*
+	case WM_CLOSE: // windows is closing
+		PostQuitMessage(0);  // generate WM_QUIT
+		break;
+*/
+	case WM_PAINT:
+		if (!text) break;
+
+		hDC = BeginPaint(hWnd, &paintStruct);
+
+		// set text color to blue
+		//SetTextColor(hDC, COLORREF(0x00FF0000));
+		SetTextColor(hDC, color);
+
+		RECT rt;
+		GetClientRect(hWnd, &rt);  // size of windows
+		wsprintf(strx, str_org, rt.left, rt.top, rt.right, rt.bottom);
+
+		// display text at the center line of window
+		TextOut(hDC, ww / 4, wh / 2 - 50, strx, (int)wcslen(strx));
+
+		EndPaint(hWnd, &paintStruct);
+		return 0;
+		break;
+
+	case WM_COMMAND:  // menu
+            switch(LOWORD(wParam)) {
+                case IDM_END:
+                    SendMessage(hWnd, WM_CLOSE, 0, 0L);
+                    break;
+
+				case IDM_CLEAR:
+					text = FALSE;
+					InvalidateRect(hWnd, NULL, TRUE);  // call WM_PAINT
+					break;
+
+				case IDM_TEXT:
+					text = TRUE;
+					InvalidateRect(hWnd, NULL, TRUE);  // call WM_PAINT
+					break;
+
+				case IDM_RED:
+					color = RGB(255, 0, 0); // red
+					text = TRUE;
+					InvalidateRect(hWnd, NULL, TRUE);  // call WM_PAINT
+					break;
+
+				case IDM_BLUE:
+					color = RGB(0, 0, 255); // blue
+					text = TRUE;
+					InvalidateRect(hWnd, NULL, TRUE);  // call WM_PAINT
+					break;
+
+			}
+            break;
+
+		case WM_CLOSE:  
+		// when closing the window, WM_CLOSE is called if present; 
+		// otherwise, WM_DESTROY is called
+			SendMessage(hWnd, WM_DESTROY, 0, 0L);
+			break;
+
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			break;
+
+		default:
+            return(DefWindowProc(hWnd, msg, wParam, lParam));
+    }
+
+	return (0L);
+}
+
+///////////////////////////////////////////////
+
+// This is: Menu.rc
+// This must be added to Solution Explorer: Resource Files
+
+// menu id
+#define IDM_END		1100
+#define IDM_CLEAR	1000
+#define IDM_TEXT	1010
+#define IDM_RED		1020
+#define IDM_BLUE	1030
+
+MYMENU MENU //PRELOAD FIXED //DISCARDABLE
+BEGIN
+	MENUITEM "End", IDM_END
+	MENUITEM "Clear", IDM_CLEAR
+	MENUITEM "Text", IDM_TEXT
+	POPUP "Color"
+	BEGIN
+		MENUITEM "Red", IDM_RED
+		MENUITEM "Blue", IDM_BLUE
+	END
+END
