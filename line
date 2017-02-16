@@ -1,0 +1,281 @@
+/*
+4line.cpp
+
+Left click a few points.
+Click menu: Line
+
+M. Kishore
+02/16/2913, 01/22/2015
+*/
+
+// trim the excess fat from Windows
+#define WIN32_LEAN_AND_MEAN 
+
+#include <windows.h>
+#include <math.h>
+#include <tchar.h>
+#include <stdio.h>
+#include <string.h>
+
+#define	IDM_QUIT		110
+#define	IDM_CLEAR		101
+#define	IDM_POINT		102
+#define	IDM_LINE		103
+#define	IDM_POLY		104
+#define	IDM_QSPLINE		105
+#define IDM_NCSPLINE	106
+#define IDM_CCSPLINE	107
+
+const int MAX_NUMBER_SCREEN_POINTS = 100;						//max number of points displayed on screen
+const int FULL_SCREEN_WIDTH = GetSystemMetrics(SM_CXSCREEN);	//width of computer screen
+const int FULL_SCREEN_HEIGHT = GetSystemMetrics(SM_CYSCREEN);	//height of computer screen
+
+int _windowWidth = 2*FULL_SCREEN_WIDTH/3;						//width of app window
+int _windowHeight = 2*FULL_SCREEN_HEIGHT/3;						//height of app window
+int _windowStartTop = (FULL_SCREEN_WIDTH - _windowWidth)/2;		//top most point of app window
+int _windowStartLeft = (FULL_SCREEN_HEIGHT - _windowHeight)/2;	//left most point of app window
+
+POINT points[MAX_NUMBER_SCREEN_POINTS];
+int _curPoints = 0;												//number of current screen points
+
+int _mode = IDM_POINT;											//defines whether or not to draw a line
+
+// create menu by a program
+void createMyMenu(HWND hwnd) {
+	HMENU hMyMenu, hCubicMenu;
+
+	hMyMenu = CreateMenu();
+
+	AppendMenu(hMyMenu, MF_STRING, IDM_QUIT, TEXT("     &Quit     "));
+	AppendMenu(hMyMenu, MF_STRING, IDM_CLEAR, TEXT("     &Clear     "));
+	AppendMenu(hMyMenu, MF_STRING, IDM_LINE, TEXT("     &Line     "));
+	AppendMenu(hMyMenu, MF_STRING, IDM_LINE, TEXT("     &Poly     "));
+	AppendMenu(hMyMenu, MF_STRING, IDM_QSPLINE, TEXT("     &Quadratic     "));
+
+	// submenu
+	hCubicMenu = CreatePopupMenu();
+	AppendMenu(hMyMenu, MF_STRING | MF_POPUP, (UINT_PTR)hCubicMenu, TEXT("     &Cubic     "));
+	AppendMenu(hCubicMenu, MF_STRING, IDM_NCSPLINE, TEXT("&Natural"));
+	AppendMenu(hCubicMenu, MF_SEPARATOR, 0, 0);
+	AppendMenu(hCubicMenu, MF_STRING, IDM_CCSPLINE, TEXT("C&ramped"));
+
+	SetMenu(hwnd, hMyMenu);
+
+	// DrawMenuBar(hwnd);
+
+	EnableMenuItem(GetMenu(hwnd), IDM_LINE, MF_GRAYED);
+	EnableMenuItem(GetMenu(hwnd), IDM_QSPLINE, MF_GRAYED);
+	EnableMenuItem(GetMenu(hwnd), IDM_CCSPLINE, MF_GRAYED);
+	EnableMenuItem(GetMenu(hwnd), IDM_NCSPLINE, MF_GRAYED);
+}
+
+//Draw X
+void drawX(HDC hDC) {
+	TCHAR str[256];
+
+	wsprintf(str, TEXT("X"));
+	SetTextColor(hDC, RGB(255, 0, 0));  // red
+	SetBkMode(hDC, TRANSPARENT);
+
+	for (int i = 0; i < _curPoints; i++)
+		TextOut(hDC, points[i].x - 5, points[i].y - 7, str, (int)wcslen(str));
+}
+
+//Draw Line
+void DrawLine ( HDC hDC )
+{
+	HPEN hpen;
+	hpen = CreatePen(PS_SOLID, 2, RGB(0, 255, 0)); // green
+	SelectObject(hDC, hpen);
+
+	for (int i = 0; i < _curPoints - 1; i++)
+	{
+		MoveToEx(hDC, points[i].x, points[i].y, NULL);  
+		LineTo(hDC, points[i+1].x, points[i+1].y);
+	}
+
+	DeleteObject(hpen);
+}
+
+void DrawPoly(HDC hDC) {
+	DrawLine(hDC);
+}
+
+//Define windows procedures
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	HDC hDC;
+	PAINTSTRUCT ps;
+
+	MENUITEMINFO on = { sizeof(MENUITEMINFO) };
+
+	switch(msg)
+	{
+		case WM_CREATE:
+			createMyMenu(hwnd);
+		break;
+
+		case WM_PAINT:  
+			if (_curPoints == 0) break;
+
+			hDC = BeginPaint(hwnd, &ps);
+			drawX(hDC);
+
+			if (_mode == IDM_LINE)
+				DrawLine(hDC);
+			else if (_mode == IDM_POLY)
+				DrawPoly(hDC);
+
+			EndPaint(hwnd, &ps);
+
+			if(_curPoints < 2)
+			{
+				EnableMenuItem(GetMenu(hwnd), IDM_LINE, MF_GRAYED);
+				EnableMenuItem(GetMenu(hwnd), IDM_QSPLINE, MF_GRAYED);
+				EnableMenuItem(GetMenu(hwnd), IDM_CCSPLINE, MF_GRAYED);
+				EnableMenuItem(GetMenu(hwnd), IDM_NCSPLINE, MF_GRAYED);
+			}
+			else
+			{
+				EnableMenuItem(GetMenu(hwnd), IDM_LINE, MF_ENABLED);
+				EnableMenuItem(GetMenu(hwnd), IDM_QSPLINE, MF_ENABLED);
+				EnableMenuItem(GetMenu(hwnd), IDM_CCSPLINE, MF_ENABLED);
+				EnableMenuItem(GetMenu(hwnd), IDM_NCSPLINE, MF_ENABLED);
+			}
+		break;
+
+		case WM_LBUTTONDOWN:  // mouse
+			if(_curPoints < MAX_NUMBER_SCREEN_POINTS)
+			{
+				points[_curPoints].x = LOWORD(lParam);
+				points[_curPoints].y = HIWORD(lParam);
+				_curPoints++;
+				InvalidateRect(hwnd, NULL, TRUE);  // call WM_PAINT
+			}
+			else
+				MessageBox(hwnd, TEXT("Maximum number of points reached,\npress Clear to define new points"), TEXT("ERROR"), MB_OK);
+/*
+			if(_curPoints < 2)
+			{
+				EnableMenuItem(GetMenu(hwnd), IDM_LINE, MF_GRAYED);
+			}
+			else
+			{
+				EnableMenuItem(GetMenu(hwnd), IDM_LINE, MF_ENABLED);
+			}
+*/
+		break;
+
+		case WM_RBUTTONDOWN:  // mouse
+		break;
+
+		case WM_COMMAND:  // menu
+			switch(LOWORD(wParam)) 
+			{
+			case IDM_QUIT:
+				PostQuitMessage(0);
+				break;
+			
+			case IDM_CLEAR:
+				_mode = IDM_CLEAR;
+				_curPoints = 0;
+				InvalidateRect(hwnd, NULL, TRUE);
+				EnableMenuItem(GetMenu(hwnd), IDM_LINE, MF_GRAYED);
+				break;
+
+			case IDM_LINE:
+				if (_curPoints <= 1) {
+					MessageBox(hwnd, TEXT("Minimum of 2 points required for Line"), TEXT("ERROR"), MB_OK);
+					break;
+				}
+
+				if (_mode == IDM_LINE) _mode = IDM_POINT;
+				else _mode = IDM_LINE;
+				InvalidateRect(hwnd,NULL,TRUE);
+			break;
+
+		case IDM_POLY:
+			if (_curPoints <= 2) {
+				MessageBox(hwnd, TEXT("Minimum of 3 points required for Poly"), TEXT("ERROR"), MB_OK);
+				break;
+			}
+
+			if (_mode == IDM_POLY) _mode = IDM_POINT;
+			else _mode = IDM_POLY;
+			InvalidateRect(hwnd, NULL, TRUE);
+			break;
+		}
+		break;
+
+		case WM_KEYDOWN:  // key
+		{
+			switch(wParam) {
+				case 'Q':
+				case VK_ESCAPE:
+					PostQuitMessage(WM_QUIT);
+				break;
+
+				default:
+				break;
+			}
+			break;
+		}
+
+		case WM_DESTROY:
+			PostQuitMessage(WM_QUIT);
+			break;
+
+		default:
+			return DefWindowProc(hwnd, msg, wParam, lParam);
+	}
+	
+	return 0;
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+	LPSTR lpCmdLine, int nCmdShow)
+{
+	WNDCLASSEX wc;
+	HWND hwnd;
+	MSG msg;	
+
+	wc.cbSize = sizeof(WNDCLASSEX);
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = 0;
+	wc.lpfnWndProc = WndProc;
+	wc.lpszClassName = TEXT("DrawLines");
+	wc.hInstance = hInstance;
+	wc.style = CS_HREDRAW | CS_VREDRAW;
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hbrBackground = (HBRUSH)(BLACK_BRUSH);
+	wc.lpszMenuName = NULL; //TEXT("LineMenu");
+
+	// Window color
+	wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+
+	RegisterClassEx(&wc);
+	//if (!RegisterClassEx(&wc)) return -1;
+
+	// not using CreateWindowEx(...)
+	hwnd = CreateWindow(
+		TEXT("DrawLines"), TEXT("Line Drawing Windows Application"), 
+		WS_OVERLAPPEDWINDOW , 
+		_windowStartTop, _windowStartLeft, _windowWidth, _windowHeight, 
+		NULL, NULL, hInstance, NULL);
+
+	//if (!hwnd) return -1;
+
+	ShowWindow(hwnd, nCmdShow);  // this is required
+	//UpdateWindow(hwnd);
+
+	while (true)
+	{	if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) == 0) continue;		
+		if (msg.message == WM_QUIT) break;
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+
+	return 0;
+}
